@@ -7,22 +7,32 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- РАБОТА С ПОЛЬЗОВАТЕЛЯМИ ---
 
-def get_or_create_user(user_id: int, username: str = None) -> dict:
+def get_or_create_user(user_id: int, username: str = None, referrer_id: int = None) -> dict:
     try:
         # Проверяем, есть ли пользователь
         res = supabase.table("users").select("*").eq("id", user_id).execute()
         if res.data:
             return res.data[0]
         
-        # Если нет — создаем
+        # Если пользователя нет — создаем его
         new_user = {
             "id": user_id,
             "username": username,
             "location_code": None,
             "is_premium": False,
-            "is_banned": False
+            "is_banned": False,
+            "referred_by": referrer_id if referrer_id and referrer_id != user_id else None
         }
         res = supabase.table("users").insert(new_user).execute()
+        
+        # Если его пригласил друг, автоматически выдаем другу премиум!
+        if referrer_id and referrer_id != user_id:
+            # Проверяем, существует ли вообще пригласивший
+            ref_check = supabase.table("users").select("id").eq("id", referrer_id).execute()
+            if ref_check.data:
+                set_premium_status(referrer_id, True)
+                logging.info(f"User {referrer_id} got Premium because they invited {user_id}")
+        
         return res.data[0] if res.data else None
     except Exception as e:
         logging.error(f"Error in get_or_create_user: {e}")
