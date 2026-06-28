@@ -171,3 +171,17 @@ def create_report(reporter_id: int, reported_id: int, reason: str):
         }).execute()
     except Exception as e:
         logging.error(f"Error in create_report: {e}")
+
+def get_open_reports(limit: int = 5) -> list:
+    try:
+        res = supabase.table("reports").select("*").eq("status", "open").limit(limit).execute()
+        return res.data if res.data else []
+    except Exception as e:
+        logging.error(f"Error in get_open_reports: {e}")
+        return []
+
+def resolve_report(report_id: int):
+    try:
+        supabase.table("reports").update({"status": "resolved"}).eq("id", report_id).execute()
+    except Exception as e:
+        logging.error(f"Error in resolve_report: {e}")
