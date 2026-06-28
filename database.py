@@ -195,3 +195,12 @@ def resolve_report(report_id: int):
         supabase.table("reports").update({"status": "resolved"}).eq("id", report_id).execute()
     except Exception as e:
         logging.error(f"Error in resolve_report: {e}")
+
+def get_users_chunk(offset: int, limit: int = 100) -> list:
+    """Выгружает только ID пользователей порциями для экономии ОЗУ"""
+    try:
+        res = supabase.table("users").select("id").range(offset, offset + limit - 1).execute()
+        return [row["id"] for row in res.data] if res.data else []
+    except Exception as e:
+        logging.error(f"Error in get_users_chunk: {e}")
+        return []
