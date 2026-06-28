@@ -5,6 +5,8 @@ from aiogram.filters import Command
 import database as db
 from config import CHANNEL_ID, ADMIN_ID
 from keyboards import inline
+# Импортируем функцию декодирования, чтобы не нагружать БД лишними строками
+from handlers.location import get_country_name_by_code
 
 router = Router()
 
@@ -68,13 +70,17 @@ async def back_to_menu(callback: CallbackQuery):
         reply_markup=inline.get_main_menu_keyboard(has_location)
     )
 
-# --- СЕКЦИЯ ПРОФИЛЯ ---
+# --- СЕКЦИЯ ПРОФИЛЯ (ОПТИМИЗИРОВАНО) ---
 @router.callback_query(F.data == "my_profile")
 async def view_profile(callback: CallbackQuery):
     user = db.get_or_create_user(callback.from_user.id)
     
+    if user and user.get("is_banned"):
+        return await callback.answer("You are banned.", show_alert=True)
+        
     loc = user.get("location_code")
-    loc_text = loc.replace("_", " ") if loc else "Not selected"
+    # Превращаем короткий код "EU_E_UA" в красивое "Ukraine" прямо в ОЗУ
+    loc_text = get_country_name_by_code(loc) if loc else "Not selected"
     status = "⭐️ Premium Member" if user.get("is_premium") else "Regular Member"
     
     profile_text = (
@@ -105,8 +111,6 @@ async def view_premium(callback: CallbackQuery):
 # --- ПОКУПКА ЗА ЗВЕЗДЫ ---
 @router.callback_query(F.data == "pay_stars")
 async def process_premium_payment(callback: CallbackQuery):
-    # Здесь мы симулируем успешную оплату (либо можно подключить Telegram Invoices для Stars)
-    # На данном этапе активируем премиум в один клик для простоты, сохраняя минимализм
     db.set_premium_status(callback.from_user.id, True)
     await callback.answer("🎉 Premium activated successfully!", show_alert=True)
     
